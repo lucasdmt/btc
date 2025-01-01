@@ -1,5 +1,3 @@
-//gcc -o p22mtblock p22mtblock.c -lsecp256k1 -lssl -lcrypto
-//./p22mtblock
 #include <pthread.h>
 #include <stdio.h>
 #include <string.h>
@@ -8,14 +6,14 @@
 #include <openssl/ripemd.h>
 #include <secp256k1.h>
 #include <signal.h>
-#include <time.h>  // Para clock_gettime
+#include <time.h>  // Para srand e rand()
 
 #define CHARSET "0123456789abcdef"
-#define NUM_CONSUMERS 120  // Número de consumidores
-#define BLOCK_SIZE 64  // Tamanho do bloco de chaves
+#define NUM_CONSUMERS 8  // Número de consumidores
+#define BLOCK_SIZE 32  // Tamanho do bloco de chaves
 #define TARGET_HASH "032ddf76d2ad152cb5b391bfba3d24251a6548dc"  // Hash alvo
 
-char base_str[65] = "403b3d4fcff56a92f335a0cf570e4xbxb17b2a6x867x86ax4x0x8x3x3x3x7x3x";
+char base_str[65] = "403b3d4fcff56a92f335a0cf570e4xbxb17b2a6x867x86a84x0x8x3x3x3x7x3x";
 int log_ativo = 0;  // 0: log desativado | 1: log ativado
 
 #define LOG(fmt, ...) \
@@ -82,7 +80,7 @@ void *producer(void *arg) {
         }
     }
 
-    int indicesCharset[65] = {0};
+    srand(time(NULL));  // Inicializa o gerador de números pseudoaleatórios
 
     while (!found) {
         pthread_mutex_lock(&block_mutex);
@@ -92,20 +90,12 @@ void *producer(void *arg) {
             block->count = 0;
 
             for (int j = 0; j < BLOCK_SIZE && !found; j++) {
+                // Preenche posições marcadas com caracteres aleatórios
                 for (int i = 0; i < totalPosicoes; i++) {
-                    current_str[posicoes[i]] = CHARSET[indicesCharset[i]];
+                    current_str[posicoes[i]] = CHARSET[rand() % strlen(CHARSET)];
                 }
-                strcpy(block->keys[block->count++], current_str);
 
-                int carry = 1;
-                for (int i = totalPosicoes - 1; i >= 0 && carry; i--) {
-                    indicesCharset[i]++;
-                    if (indicesCharset[i] == strlen(CHARSET)) {
-                        indicesCharset[i] = 0;
-                    } else {
-                        carry = 0;
-                    }
-                }
+                strcpy(block->keys[block->count++], current_str);
             }
 
             LOG("[Producer] Bloco gerado para consumidor %d com %d chaves.\n", consumer_id, block->count);
